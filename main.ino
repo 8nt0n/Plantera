@@ -48,15 +48,29 @@ const int Pot2_Return = 6;
 
 
 // The 5 Buttons under the display
-const int CTRL_Button_UP = 8;
-const int CTRL_Button_LEFT = 9;
+const int CTRL_Button_UP = 9;
+const int CTRL_Button_LEFT = 8;
 const int CTRL_Button_DOWN = 10;
-const int CTRL_Button_RIGHT = 11;
-const int CTRL_Button_MIDDLE = 12;
+const int CTRL_Button_RIGHT = 12;
+const int CTRL_Button_MIDDLE = 11;
 
 const int Pump_resevoir = 5; 
-const int Pump_pots = -1;
+const int Pump_pots = A0; // bruh random ahhh pin 😭
 
+int water_time = 1000; // water time per pot in ms
+
+void water(int time) { // yesss too lazy to do some crazy ml calculation shit...
+  digitalWrite(Pump_pots, HIGH);
+  delay(time);
+  digitalWrite(Pump_pots, LOW);
+}
+
+void drive_right(int steps) {
+  digitalWrite(motor_1, HIGH);
+  digitalWrite(motor_2, LOW);
+  delay(steps);
+  digitalWrite(motor_1, LOW);
+}
 
 // gets the humidity value of a pot
 int get_humidity(int index) {
@@ -106,31 +120,58 @@ int get_humidity(int index) {
       }
       break;
 
-    // if not already, return humidity
-    return humidity;
+    // you shouldnt ever get to this line but im gonna add a brief print statement just incase
+    Serial.println("Anton you fucking retard this was not supposed to happen");
   }
 }
 
 void home_motor() {
 
-  bool homed = LOW;
+  // What the actual fuck i thought it was low and wasted 30 min of my life omg stupid retard
+  bool homed = HIGH;
 
-  while(homed == LOW) {
+  while(homed == HIGH) {
     homed = digitalRead(motor_homing);
-    digitalWrite(motor_1, HIGH);
+    digitalWrite(motor_1, LOW);
+    digitalWrite(motor_2, HIGH);
+    delay(10); 
   }
 
-  // Drive a bit backwards
-  digitalWrite(motor_1, LOW);
-  digitalWrite(motor_2, HIGH);
-  delay(200);
-  digitalWrite(motor_2, LOW);
+  // Drive a bit to the right
+  drive_right(500);
+  return;
 }
 
 
 // makes the motor drive to the right pot and water it
-void water_plants(int Pots) {
+void water_plants(bool Pots[3]) {
+
   home_motor();
+
+  if (Pots[0] == true) {
+    // water
+    water(water_time);
+  }
+
+
+  // drive to pot 1 if pot 1 or 2 needs to be watered
+  if (Pots[1] == true || Pots[2] == true) { 
+    drive_right(10000);
+  }
+
+
+  if (Pots[1] == true) { 
+    //water only if needed if it needs to
+    water(water_time);
+  }
+
+  if (Pots[2] == true) {
+    // only drive to pot 2 if we need to
+    drive_right(11000);
+    // and water
+    water(water_time);
+  }
+
 }
 
 
@@ -153,6 +194,7 @@ void setup() {
   pinMode(motor_homing, INPUT);
 
   pinMode(Pump_resevoir, OUTPUT);
+  pinMode(Pump_pots, OUTPUT);
 
   pinMode(motor_1, OUTPUT);
   pinMode(motor_2, OUTPUT);
@@ -242,21 +284,41 @@ void loop() {
 
   // comment for future me (yes youre literally that dumb): yes millis will overflow after 50 days, no it wont destroy this section right here because the superior older you is a literal 10x developer, look at this clean ass code, no need to worry / panick
   for (int i = 0; i < 3; i++) {
-      if (Humidity[i] < humidity_treshhold && (currentTime - LastWatered[i]) > min_duration) {
-        WaterSchedule[i] = true;
+      if (Humidity[i] != -1 && Humidity[i] < humidity_treshhold && (currentTime - LastWatered[i]) > min_duration) {
+        WaterSchedule[i] = true; // water plant
         LastWatered[i] = millis(); // update when we last watered the plant
+      }
+      else {
+        WaterSchedule[i] = false;
       }
   }
   
 
-  // water_plants(WaterSchedule);
+  // another geeenius code snippet bro (only water plants if at least one pot has to be watered)
+  if (WaterSchedule[0] || WaterSchedule[1] || WaterSchedule[2]) {
+    water_plants(WaterSchedule);
+
+    // reset WaterSchedule to false false false after watering
+    for (int i = 0; i < 3; i++) {
+      WaterSchedule[i] = false;
+    }
+  }
   
-  // after 3 waterings clean reseavoiua
+  //-------------- after 9 waterings clean reseavoiua --------------//
+
+
+
+
+
+  
 
 
   //-------------- Debug remove this later --------------//
 
-  bool DBG_Button_pressed = digitalRead(CTRL_Button_MIDDLE);
+  bool DBG_Button_pressed;
+
+  // clean resevoir
+  DBG_Button_pressed = digitalRead(CTRL_Button_MIDDLE);
 
   while (DBG_Button_pressed == HIGH) {
     DBG_Button_pressed = digitalRead(CTRL_Button_MIDDLE);
@@ -264,5 +326,39 @@ void loop() {
     delay(10);
   }
   digitalWrite(Pump_resevoir, LOW);
+
+
+  // drive right
+  DBG_Button_pressed = digitalRead(CTRL_Button_LEFT);
+  
+  if (DBG_Button_pressed == HIGH) {
+    drive_right(1000);
+    while(DBG_Button_pressed == HIGH) {
+      delay(10);
+      DBG_Button_pressed = digitalRead(CTRL_Button_LEFT);
+    }
+  }
+
+  // home
+  DBG_Button_pressed = digitalRead(CTRL_Button_RIGHT);
+  
+  if (DBG_Button_pressed == HIGH) {
+    home_motor();
+    while(DBG_Button_pressed == HIGH) {
+      delay(10);
+      DBG_Button_pressed = digitalRead(CTRL_Button_RIGHT);
+    }
+  }
+
+  // water
+  DBG_Button_pressed = digitalRead(CTRL_Button_UP);
+  
+  if (DBG_Button_pressed == HIGH) {
+    water(water_time);
+    while(DBG_Button_pressed == HIGH) {
+      delay(10);
+      DBG_Button_pressed = digitalRead(CTRL_Button_UP);
+    }
+  }
 
 }
